@@ -1,22 +1,24 @@
 package prices
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strconv"
+
+	"expample.com/price-calculator/conversion"
+	"expample.com/price-calculator/filemanager"
 )
 
 type TaxIncludedPriceJob struct {
-	TaxRate      float64
-	Prices       []float64
-	PriceWithTax map[string]float64
+	TaxRate      float64                 `json:"tax_rate"`
+	Prices       []float64               `json:"prices"`
+	PriceWithTax map[string]string       `json:"price_with_tax"`
+	IOManager    filemanager.FileManager `json:"-"`
 }
 
-func New(tax float64) *TaxIncludedPriceJob {
+func New(fm filemanager.FileManager, tax float64) *TaxIncludedPriceJob {
 	return &TaxIncludedPriceJob{
-		Prices:  []float64{10, 20, 30},
-		TaxRate: tax,
+		Prices:    []float64{10, 20, 30},
+		TaxRate:   tax,
+		IOManager: fm,
 	}
 }
 
@@ -27,44 +29,26 @@ func (job *TaxIncludedPriceJob) Process() {
 		taxIncludedPrice := price * (1 + job.TaxRate)
 		result[fmt.Sprintf("%.2f", price)] = fmt.Sprintf("%.2f", taxIncludedPrice)
 	}
-	//job.PriceWithTax = result
+	job.PriceWithTax = result
 
 	fmt.Println(result)
+	job.IOManager.WriteResult(job)
 
 }
 
 func (job *TaxIncludedPriceJob) LoadPrices() {
-	file, err := os.Open("prices.txt")
+	lines, err := job.IOManager.ReadLines()
+
 	if err != nil {
-		fmt.Println("Could not opne prices.txt")
 		fmt.Println(err)
 		return
 	}
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
 
-	err = scanner.Err()
+	prices, err := conversion.StringsToFloats(lines)
 	if err != nil {
-		fmt.Println("Reading file content failed")
 		fmt.Println(err)
-		file.Close()
 		return
 	}
 
-	prices := make([]float64, len(lines))
-	for index, line := range lines {
-		floatPrice, err := strconv.ParseFloat(line, 64)
-		if err != nil {
-			fmt.Println("Converting price failed")
-			fmt.Println(err)
-			file.Close()
-			return
-		}
-		prices[index] = floatPrice
-	}
 	job.Prices = prices
-
 }
