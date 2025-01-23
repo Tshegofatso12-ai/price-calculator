@@ -22,8 +22,12 @@ func New(fm filemanager.FileManager, tax float64) *TaxIncludedPriceJob {
 	}
 }
 
-func (job *TaxIncludedPriceJob) Process() {
-	job.LoadPrices()
+func (job *TaxIncludedPriceJob) Process(doneChan chan bool, errChan chan error) {
+	err := job.LoadPrices()
+	if err != nil {
+		errChan <- err
+		return
+	}
 	result := make(map[string]string)
 	for _, price := range job.Prices {
 		taxIncludedPrice := price * (1 + job.TaxRate)
@@ -33,22 +37,22 @@ func (job *TaxIncludedPriceJob) Process() {
 
 	fmt.Println(result)
 	job.IOManager.WriteResult(job)
+	doneChan <- true
 
 }
 
-func (job *TaxIncludedPriceJob) LoadPrices() {
+func (job *TaxIncludedPriceJob) LoadPrices() error {
 	lines, err := job.IOManager.ReadLines()
 
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	prices, err := conversion.StringsToFloats(lines)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	job.Prices = prices
+	return nil
 }
